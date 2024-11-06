@@ -21,5 +21,6 @@ jobs:
 
     - name: Run script to check and close work item
       run: node close-work-item.js
+      working-directory: .github/workflows
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
