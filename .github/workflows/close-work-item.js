@@ -35,15 +35,25 @@ async function run() {
 }
 
 async function getLinkedWorkItem(issue, owner, repo) {
-  // Find the label that starts with 'work-item-'
-  const workItemLabel = issue.labels.find(label => label.name.startsWith('work-item-'));
-  if (workItemLabel) {
-    const workItemNumber = parseInt(workItemLabel.name.replace('work-item-', ''), 10);
+  // Get the timeline events for the issue
+  const { data: events } = await octokit.issues.listEventsForTimeline({
+    owner,
+    repo,
+    issue_number: issue.number
+  });
+
+  // Find the 'cross-referenced' event where the source is the work item
+  const crossReferencedEvent = events.find(event => 
+    event.event === 'cross-referenced' && 
+    event.source.issue.number === issue.number
+  );
+
+  if (crossReferencedEvent) {
     // Get the work item issue
     const { data: workItem } = await octokit.issues.get({
       owner,
       repo,
-      issue_number: workItemNumber
+      issue_number: crossReferencedEvent.source.issue.number
     });
     return workItem;
   }
@@ -51,17 +61,29 @@ async function getLinkedWorkItem(issue, owner, repo) {
 }
 
 async function getLinkedTasks(workItem, owner, repo) {
-  // Get all issues in the repository
-  const { data: issues } = await octokit.issues.listForRepo({
+  // Get the timeline events for the work item
+  const { data: events } = await octokit.issues.listEventsForTimeline({
     owner,
     repo,
-    state: 'all'
+    issue_number: workItem.number
   });
 
-  // Filter issues to find tasks linked to the work item
-  const tasks = issues.filter(issue => 
-    issue.labels.some(label => label.name === `work-item-${workItem.number}`)
+  // Find all 'cross-referenced' events where the target is a task
+  const taskEvents = events.filter(event => 
+    event.event === 'cross-referenced' && 
+    event.source.issue.number === workItem.number
   );
+
+  // Get the task issues
+  const tasks = await Promise.all(taskEvents.map(async event => {
+    const { data: task } = await octokit.issues.get({
+      owner,
+      repo,
+      issue_number: event.target.issue.number
+    });
+    return task;
+  }));
+
   return tasks;
 }
 
