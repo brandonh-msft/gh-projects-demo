@@ -25,3 +25,5 @@ jobs:
       working-directory: .github/workflows
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_ISSUE_NUMBER: ${{ github.event.issue.number }}
